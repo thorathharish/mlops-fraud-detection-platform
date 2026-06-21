@@ -1,0 +1,101 @@
+name: Drift → Retrain → Deploy
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+    inputs:
+      force_retrain:
+        description: "Force retrain even without drift"
+        required: false
+        default: "false"
+
+env:
+  GCP_PROJECT: vizualflo-openclaw-prod
+  GCP_REGION: us-central1
+  AR_REPO: us-central1-docker.pkg.dev/vizualflo-openclaw-prod/fraudguard
+  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+
+jobs:
+  detect-drift:
+    runs-on: ubuntu-latest
+    outputs:
+      drift_detected: ${{ steps.drift.outputs.drift_detected }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install monitoring deps
+        run: pip install evidently pandas numpy
+      - name: Pull latest inference data from GCS
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - run: gsutil cp gs://$GCP_PROJECT-fraudguard-data/inference/latest.csv data/raw/transactions_drifted.csv
+      - name: Run drift detection
+        id: drift
+        run: |
+          python src/monitoring/drift_detector.py && echo "drift_detected=false" >> $GITHUB_OUTPUT || echo "drift_detected=true" >> $GITHUB_OUTPUT
+
+  retrain:
+    needs: detect-drift
+    if: needs.detect-drift.outputs.drift_detected == 'true' || github.event.inputs.force_retrain == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install training deps
+        run: pip install xgboost scikit-learn mlflow pandas numpy dvc dvc-gs
+      - name: Authenticate GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Pull training data via DVC
+        run: dvc pull data/raw/transactions.csv data/raw/transactions_test.csv
+      - name: Retrain model
+        run: python src/train/train.py --run-name "retrain-${{ github.run_number }}"
+      - name: Transition model to Production
+        run: python scripts/promote_model.py --model-name fraudguard-xgboost --stage Production
+
+  build-push:
+    needs: retrain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $GCP_REGION-docker.pkg.dev
+      - name: Build and push serving image
+        run: |
+          docker build -f docker/Dockerfile.serve -t $AR_REPO/fraudguard-serve:${{ github.run_number }} .
+          docker push $AR_REPO/fraudguard-serve:${{ github.run_number }}
+          docker tag $AR_REPO/fraudguard-serve:${{ github.run_number }} $AR_REPO/fraudguard-serve:latest
+          docker push $AR_REPO/fraudguard-serve:latest
+
+  canary-deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: fraudguard-cluster
+          location: ${{ env.GCP_REGION }}
+      - name: Canary deploy via Helm
+        run: |
+          helm upgrade fraudguard helm/fraudguard \
+            --set image.tag=${{ github.run_number }} \
+            --set rollout.canaryWeight=10 \
+            --namespace fraudguard \
+            --install \
+            --wait

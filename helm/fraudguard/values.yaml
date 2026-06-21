@@ -1,0 +1,48 @@
+replicaCount: 2
+
+image:
+  repository: us-central1-docker.pkg.dev/vizualflo-openclaw-prod/fraudguard/fraudguard-serve
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8000
+
+rollout:
+  enabled: true
+  canaryWeight: 10          # % of traffic to canary on deploy
+  autoPromotionEnabled: true
+  autoPromotionSeconds: 300 # promote after 5 min if p99 < SLO
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+env:
+  MLFLOW_TRACKING_URI: "http://mlflow:5000"
+  MODEL_NAME: "fraudguard-xgboost"
+  MODEL_STAGE: "Production"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /metrics

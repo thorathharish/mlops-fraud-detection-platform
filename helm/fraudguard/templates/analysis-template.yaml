@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: p99-latency-check
+  namespace: {{ .Release.Namespace }}
+spec:
+  metrics:
+    - name: p99-latency
+      interval: 1m
+      successCondition: result[0] < 0.1   # p99 < 100ms
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(fraudguard_request_latency_seconds_bucket[2m])) by (le)
+            )
+    - name: error-rate
+      interval: 1m
+      successCondition: result[0] < 0.01  # < 1% errors
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus:9090
+          query: |
+            sum(rate(fraudguard_requests_total{result="error"}[2m]))
+            /
+            sum(rate(fraudguard_requests_total[2m]))
