@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+.eggs/
+
+# Data (DVC tracked)
+data/raw/
+data/processed/
+data/reference/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Reports
+reports/
+
+# Env
+.env
+.env.*
+*.env
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/.terraform.lock.hcl
+
+# Feast
+data/feast_registry.db
+data/online_store.db
+
+# Misc
+.DS_Store
+*.log

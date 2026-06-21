@@ -1,0 +1,37 @@
+stages:
+  generate:
+    cmd: python src/train/generate_data.py
+    deps:
+      - src/train/generate_data.py
+    outs:
+      - data/raw/transactions.csv
+      - data/raw/transactions_test.csv
+      - data/raw/transactions_drifted.csv
+      - data/reference/reference.csv
+
+  train:
+    cmd: python src/train/train.py --data data/raw/transactions.csv --test-data data/raw/transactions_test.csv
+    deps:
+      - src/train/train.py
+      - data/raw/transactions.csv
+      - data/raw/transactions_test.csv
+    params:
+      - params.yaml:
+          - train.n_estimators
+          - train.max_depth
+          - train.learning_rate
+    metrics:
+      - reports/metrics.json:
+          cache: false
+
+  detect_drift:
+    cmd: python src/monitoring/drift_detector.py
+    deps:
+      - src/monitoring/drift_detector.py
+      - data/reference/reference.csv
+      - data/raw/transactions_drifted.csv
+    outs:
+      - reports/drift_summary.json:
+          cache: false
+      - reports/drift_report.html:
+          cache: false

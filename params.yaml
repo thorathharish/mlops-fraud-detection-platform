@@ -1,0 +1,14 @@
+train:
+  n_estimators: 400
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+
+serving:
+  fraud_threshold: 0.5
+  p99_slo_ms: 100
+
+drift:
+  threshold: 0.3
+  check_interval_hours: 6
