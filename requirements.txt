@@ -7,12 +7,12 @@ numpy==2.2.6
 joblib==1.4.2
 
 # MLflow
-mlflow==2.22.0
+mlflow>=3.0.0
 boto3==1.38.32
 
 # Data versioning
-dvc==3.60.0
-dvc-gs==3.0.3
+dvc>=3.0.0
+dvc-gs>=3.0.0
 
 # Feature store
 feast==0.44.1

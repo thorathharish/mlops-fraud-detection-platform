@@ -1,0 +1,88 @@
+groups:
+  - name: fraudguard.slo
+    interval: 30s
+    rules:
+      # p99 latency SLO burn rate — 100ms budget
+      - alert: FraudGuardHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(fraudguard_request_latency_seconds_bucket[5m])) by (le)
+          ) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: mlops
+        annotations:
+          summary: "FraudGuard p99 latency exceeded 100ms SLO"
+          description: "p99 latency is {{ $value | humanizeDuration }}, threshold 100ms"
+
+      - alert: FraudGuardCriticalLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(fraudguard_request_latency_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+          team: mlops
+        annotations:
+          summary: "FraudGuard p99 latency critically high (>500ms)"
+
+      # Error rate SLO
+      - alert: FraudGuardHighErrorRate
+        expr: |
+          sum(rate(fraudguard_requests_total{result="error"}[5m]))
+          /
+          sum(rate(fraudguard_requests_total[5m])) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FraudGuard error rate > 1%"
+          description: "Error rate: {{ $value | humanizePercentage }}"
+
+      # Traffic anomaly — sudden block rate spike (possible model drift)
+      - alert: FraudGuardBlockRateSpike
+        expr: |
+          sum(rate(fraudguard_requests_total{result="BLOCK"}[5m]))
+          /
+          sum(rate(fraudguard_requests_total[5m])) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FraudGuard block rate > 10% — possible model drift or attack"
+          description: "Block rate: {{ $value | humanizePercentage }}"
+
+      # Service down
+      - alert: FraudGuardDown
+        expr: up{job="fraudguard-serve"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FraudGuard serving endpoint is down"
+
+  - name: fraudguard.drift
+    rules:
+      # Fraud score distribution shift (median score rising = possible drift)
+      - record: fraudguard:fraud_score_p50
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(fraudguard_fraud_score_bucket[15m])) by (le)
+          )
+
+      - record: fraudguard:fraud_score_p99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(fraudguard_fraud_score_bucket[15m])) by (le)
+          )
+
+      - alert: FraudScoreDistributionShift
+        expr: fraudguard:fraud_score_p50 > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fraud score median > 0.3 — potential distribution shift"
+          description: "Median fraud score: {{ printf \"%.4f\" $value }}. Run drift detection."

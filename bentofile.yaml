@@ -1,0 +1,18 @@
+service: "src/serve/bento_service.py:svc"
+labels:
+  owner: fraudguard
+  project: mlops-fraud-detection-platform
+include:
+  - "src/serve/bento_service.py"
+  - "src/train/train.py"
+python:
+  packages:
+    - xgboost
+    - mlflow
+    - pandas
+    - numpy
+    - pydantic
+    - prometheus-client
+docker:
+  python_version: "3.11"
+  base_image: "python:3.11-slim"

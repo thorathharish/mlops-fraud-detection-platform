@@ -1,0 +1,6 @@
+[core]
+    remote = gcs-remote
+    autostage = true
+
+[remote "gcs-remote"]
+    url = gs://vizualflo-openclaw-prod-fraudguard-data/dvc

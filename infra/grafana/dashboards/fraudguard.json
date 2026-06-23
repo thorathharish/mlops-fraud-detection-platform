@@ -1,0 +1,85 @@
+{
+  "title": "FraudGuard — MLOps Dashboard",
+  "uid": "fraudguard-mlops",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate (req/s)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [{
+        "expr": "sum(rate(fraudguard_requests_total[1m]))",
+        "legendFormat": "req/s"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "p99 Latency (ms)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [{
+        "expr": "histogram_quantile(0.99, sum(rate(fraudguard_request_latency_seconds_bucket[5m])) by (le)) * 1000",
+        "legendFormat": "p99 ms"
+      }],
+      "thresholds": {
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 75 },
+          { "color": "red", "value": 100 }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "Fraud Block Rate (%)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{
+        "expr": "100 * sum(rate(fraudguard_requests_total{result=\"BLOCK\"}[5m])) / sum(rate(fraudguard_requests_total[5m]))",
+        "legendFormat": "block %"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "p50 / p95 / p99 Latency",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(fraudguard_request_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(fraudguard_request_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(fraudguard_request_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Fraud Score Distribution",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [{
+        "expr": "sum(rate(fraudguard_fraud_score_bucket[5m])) by (le)",
+        "legendFormat": "le={{le}}"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "ALLOW vs BLOCK split",
+      "type": "piechart",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+      "targets": [{
+        "expr": "sum by (result) (rate(fraudguard_requests_total[5m]))",
+        "legendFormat": "{{result}}"
+      }]
+    }
+  ]
+}

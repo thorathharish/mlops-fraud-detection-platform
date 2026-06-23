@@ -56,7 +56,7 @@ app = FastAPI(title="FraudGuard", version="1.0.0", lifespan=lifespan)
 
 
 class Transaction(BaseModel):
-    transaction_id: str = Field(..., example="txn_0000001")
+    transaction_id: str = Field(..., json_schema_extra={"example": "txn_0000001"})
     amount: float = Field(..., gt=0)
     hour_of_day: int = Field(..., ge=0, le=23)
     day_of_week: int = Field(..., ge=0, le=6)

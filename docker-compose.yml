@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ── MLflow tracking server ─────────────────────────────────────────────
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.22.0
     ports:
@@ -14,11 +15,13 @@ services:
       --host 0.0.0.0
       --port 5000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 8
+      start_period: 20s
 
+  # ── Redis (Feast online store) ─────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
@@ -29,6 +32,7 @@ services:
       timeout: 3s
       retries: 5
 
+  # ── FraudGuard FastAPI serving ─────────────────────────────────────────
   fraudguard-serve:
     build:
       context: .
@@ -38,26 +42,55 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - MODEL_NAME=fraudguard-xgboost
-      - MODEL_STAGE=Production
+      - MODEL_STAGE=production
     depends_on:
       mlflow:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 8
+      start_period: 30s
 
+  # ── Drift checker (runs every 6h, exit 1 signals retrain needed) ────────
+  drift-checker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.train
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    command: >
+      sh -c "while true; do
+        python src/monitoring/drift_detector.py;
+        echo 'Drift check done, sleeping 6h';
+        sleep 21600;
+      done"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    profiles:
+      - monitoring
+
+  # ── Prometheus ────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v3.4.0
     ports:
       - "9090:9090"
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/prometheus-rules.yml:/etc/prometheus/rules/fraudguard-rules.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    depends_on:
+      - fraudguard-serve
 
+  # ── Grafana ───────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:12.0.1
     ports:
@@ -65,10 +98,13 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
 
 volumes:
   mlflow_data:

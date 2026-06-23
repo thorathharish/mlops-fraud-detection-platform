@@ -1,4 +1,4 @@
-"""Integration tests for the FastAPI serving endpoint (model mocked)."""
+"""Integration tests for the FastAPI serving endpoint (MLflow mocked)."""
 
 import sys
 from pathlib import Path
@@ -9,7 +9,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
 
 SAMPLE_TXN = {
     "transaction_id": "txn_test_001",
@@ -25,15 +24,26 @@ SAMPLE_TXN = {
     "card_present": 1,
 }
 
-FRAUD_TXN = {**SAMPLE_TXN, "transaction_id": "txn_fraud_001", "amount": 9999.0, "velocity_1h": 8, "is_international": 1}
+FRAUD_TXN = {
+    **SAMPLE_TXN,
+    "transaction_id": "txn_fraud_001",
+    "amount": 9999.0,
+    "velocity_1h": 8,
+    "is_international": 1,
+}
+
+
+def _make_mock_model(fraud_prob: float = 0.15):
+    m = MagicMock()
+    m.predict_proba.return_value = np.array([[1 - fraud_prob, fraud_prob]])
+    return m
 
 
 @pytest.fixture
 def client():
-    mock_model = MagicMock()
-    mock_model.predict_proba.return_value = np.array([[0.85, 0.15]])
-
-    with patch("src.serve.app.model", mock_model):
+    mock_model = _make_mock_model(0.15)
+    # Patch mlflow.xgboost.load_model so the lifespan doesn't hit a real server
+    with patch("mlflow.xgboost.load_model", return_value=mock_model):
         from src.serve.app import app
         with TestClient(app) as c:
             yield c, mock_model
@@ -43,6 +53,8 @@ def test_health(client):
     c, _ = client
     r = c.get("/health")
     assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+    assert r.json()["model_loaded"] is True
 
 
 def test_predict_allow(client):
@@ -67,7 +79,9 @@ def test_predict_block(client):
 
 
 def test_metrics_endpoint(client):
-    c, _ = client
+    c, mock_model = client
+    mock_model.predict_proba.return_value = np.array([[0.8, 0.2]])
+    c.post("/predict", json=SAMPLE_TXN)  # generate at least one metric
     r = c.get("/metrics")
     assert r.status_code == 200
     assert b"fraudguard_requests_total" in r.content
