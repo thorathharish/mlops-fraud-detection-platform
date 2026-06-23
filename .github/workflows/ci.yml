@@ -18,7 +18,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install ruff pytest pytest-asyncio httpx xgboost scikit-learn mlflow pandas numpy
+        run: pip install ruff pytest pytest-asyncio httpx xgboost scikit-learn mlflow pandas numpy fastapi starlette pydantic prometheus-client
 
       - name: Lint
         run: ruff check src/ tests/
