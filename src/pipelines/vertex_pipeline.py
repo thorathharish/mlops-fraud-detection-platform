@@ -10,8 +10,6 @@ Requires:
 """
 
 import argparse
-import os
-from typing import NamedTuple
 
 from google.cloud import aiplatform
 from kfp import compiler, dsl

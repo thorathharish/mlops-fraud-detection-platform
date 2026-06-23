@@ -7,12 +7,8 @@ End-to-end inference demo:
 Run after: feast materialize-incremental $(date +%Y-%m-%dT%H:%M:%S)
 """
 
-import json
 import os
-import sys
-from datetime import datetime
 
-import pandas as pd
 import requests
 
 SERVE_URL = os.getenv("SERVE_URL", "http://localhost:8000")

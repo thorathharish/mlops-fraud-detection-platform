@@ -3,14 +3,12 @@
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.train.train import FEATURE_COLS, TARGET_COL, compute_scale_pos_weight
 from src.train.generate_data import generate
+from src.train.train import FEATURE_COLS, TARGET_COL, compute_scale_pos_weight
 
 
 def test_generate_data_shape():

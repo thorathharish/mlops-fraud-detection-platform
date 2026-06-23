@@ -5,12 +5,11 @@ Outputs a drift report (HTML + JSON) and returns a boolean: drift_detected.
 """
 
 import json
-import os
 from pathlib import Path
 
 import pandas as pd
-from evidently.legacy.pipeline.column_mapping import ColumnMapping
 from evidently.legacy.metric_preset import DataDriftPreset
+from evidently.legacy.pipeline.column_mapping import ColumnMapping
 from evidently.legacy.report import Report
 
 FEATURE_COLS = [
@@ -41,7 +40,6 @@ def detect_drift(
     result = report.as_dict()
     # metrics[0] = dataset-level summary (share_of_drifted_columns, dataset_drift)
     # metrics[1] = per-column breakdown with drift_by_columns
-    dataset_summary = result["metrics"][0]["result"]
     column_details = result["metrics"][1]["result"]
 
     n_drifted = column_details["number_of_drifted_columns"]

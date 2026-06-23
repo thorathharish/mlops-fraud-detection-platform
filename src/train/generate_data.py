@@ -3,9 +3,10 @@ Generates a synthetic fraud detection dataset (~100k transactions, ~1% fraud rat
 Saves to data/raw/transactions.csv and data/reference/reference.csv (training baseline for drift detection).
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 SEED = 42
 N_SAMPLES = 100_000

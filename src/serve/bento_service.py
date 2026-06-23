@@ -14,9 +14,8 @@ import os
 
 import bentoml
 import mlflow.xgboost
-import numpy as np
 import pandas as pd
-from bentoml.io import JSON, NumpyNdarray
+from bentoml.io import JSON
 from pydantic import BaseModel
 
 FEATURE_COLS = [

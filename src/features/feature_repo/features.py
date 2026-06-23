@@ -6,10 +6,8 @@ Defines: entity (transaction), feature view (transaction_features), on-demand fe
 from datetime import timedelta
 from pathlib import Path
 
-import pandas as pd
-from feast import Entity, FeatureStore, FeatureView, Field, FileSource
-from feast.types import Float32, Int32, String
-
+from feast import Entity, FeatureView, Field, FileSource
+from feast.types import Float32, Int32
 
 transaction = Entity(name="transaction_id", description="Unique transaction identifier")
 

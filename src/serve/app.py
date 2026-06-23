@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 import mlflow.xgboost
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 from starlette.responses import Response
 

@@ -5,13 +5,10 @@ Logs: params, PR-AUC, ROC-AUC, F1; registers best model in MLflow Registry.
 """
 
 import argparse
-import json
 import os
-from pathlib import Path
 
 import mlflow
 import mlflow.xgboost
-import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import (
@@ -21,7 +18,6 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 FEATURE_COLS = [
     "amount",
@@ -113,11 +109,11 @@ def train(data_path: str, test_path: str, run_name: str = "fraudguard-train") ->
             "test_f1": f1_test,
         })
 
-        print(f"\n=== Validation ===")
+        print("\n=== Validation ===")
         print(f"  PR-AUC : {pr_auc_val:.4f}")
         print(f"  ROC-AUC: {roc_auc_val:.4f}")
         print(f"  F1     : {f1_val:.4f}")
-        print(f"\n=== Test ===")
+        print("\n=== Test ===")
         print(f"  PR-AUC : {pr_auc_test:.4f}")
         print(f"  ROC-AUC: {roc_auc_test:.4f}")
         print(f"  F1     : {f1_test:.4f}")
